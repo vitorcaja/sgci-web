@@ -14,7 +14,7 @@
               <q-input v-model="pessoa.nome" label="Nome" :rules="[val=> !(val == null || val === '') || 'Campo obrigatório']" dense />
             </div>
             <div class="col-3">
-              <q-input v-model="pessoa.documento" @input="aplicarMascaraCpfCnpj" @blur="validarCpfCnpj" label="Documento"
+              <q-input v-model="pessoa.documento" @input="aplicarMascaraCpfCnpjInput" @blur="validarCpfCnpj" label="Documento"
                        placeholder="Digite CPF ou CNPJ" :rules="[val=> !(val == null || val === '') || 'Campo obrigatório']" dense />
               <span v-if="pessoa.erro" style="color: red;">{{ pessoa.erro }}</span>
             </div>
@@ -24,13 +24,14 @@
           </div>
           <div class="row q-col-gutter-lg q-mb-sm">
             <div class="col-6">
-              <q-field :rules="[val=> !(val == null || val === '') || 'Campo obrigatório']" dense label="Tipo de Pessoa" lazy-rules borderless stack-label>
-                <q-option-group v-model="pessoa.tipo" :options="tipos" color="primary" inline />
+              <q-field :rules="[() => !(pessoa.tipo == null || pessoa.tipo === '') || 'Campo obrigatório']"  dense label="Tipo de Pessoa" lazy-rules borderless stack-label >
+                <q-option-group v-model="pessoa.tipo" :options="tipos" color="primary" inline disable />
               </q-field>
             </div>
             <div class="col-3">
-              <q-select filled v-model="pessoa.estadoCivil" :options="estadosCivil" label="Estado Civil"
+              <q-select filled v-model="pessoa.estadoCivilField" :options="estadosCivil" label="Estado Civil"
                         :rules="[val=> !(val == null || val === '') || 'Campo obrigatório']" stack-label dense denseOpts />
+
             </div>
           </div>
         </div>
@@ -83,28 +84,49 @@
 </template>
 
 <script>
-import {ref} from "vue";
+import { ref } from "vue";
+import { pessoaService } from "src/services/pessoaService.js";
 import { validarCpf, validarCnpj } from '../../utils/cpfCnpj';
 import CepService from "src/services/cepService.js";
-import {aplicarMascaraCep, validarCep} from "src/utils/cep.js";
+import { aplicarMascaraCep, validarCep } from "src/utils/cep.js";
 
 export default {
   name: 'create-edit-pessoa',
   setup () {
+    // const pessoa = ref({
+    //   nome: null,
+    //   documento: null,
+    //   tipo: null,
+    //   profissao: null,
+    //   estadoCivil: null,
+    //   endereco: ref({
+    //     cep: null,
+    //     estado: null,
+    //     ibge: null,
+    //     cidade: null,
+    //     bairro: null,
+    //     rua: null,
+    //     numero: null
+    //   }),
+    //   erro: null,
+    //   erroCEP: null
+    // });
+
     const pessoa = ref({
-      nome: null,
+      nome: 'Vitor Hugo Jr.',
       documento: null,
       tipo: null,
-      profissao: null,
-      estadoCivil: null,
+      profissao: 'Analista de testes Jr.',
+      estadoCivilField: {label:'Casado', value:'CASADO'},
+      estadoCivil: 'CASADO',
       endereco: ref({
-        cep: null,
-        estado: null,
-        ibge: null,
-        cidade: null,
-        bairro: null,
-        rua: null,
-        numero: null
+        cep: '72156204',
+        estado: 'DF',
+        ibge: 5300108,
+        cidade: 'Brasília',
+        bairro: 'Taguatinga Norte (Taguatinga)"',
+        rua: 'Quadra QNL 12 Conjunto D',
+        numero: 1
       }),
       erro: null,
       erroCEP: null
@@ -113,14 +135,8 @@ export default {
     return {
       pessoa,
       tipos: [
-        {
-          label: 'Pessoa Física',
-          value: 'PESSOA_FISICA'
-        },
-        {
-          label: 'Pessoa Jurídica',
-          value: 'PESSOA_JURIDICA'
-        }
+        { label: 'Pessoa Física', value: 'PESSOA_FISICA' },
+        { label: 'Pessoa Jurídica', value: 'PESSOA_JURIDICA' }
       ],
       estadosCivil: [
         { label: 'Solteira', value: 'SOLTEIRA' },
@@ -162,20 +178,36 @@ export default {
       cidades: []
     };
   },
+  mounted() {
+    this.pessoa.documento = '99964643187';
+    this.aplicarMascaraCpfCnpjInput();
+
+  },
   methods: {
     // Aplica a máscara automaticamente enquanto o usuário digita
-    aplicarMascaraCpfCnpj() {
-      // Remove qualquer formatação anterior e aplica a máscara
-      let valor = this.pessoa.documento.replace(/\D/g, ''); // Remove tudo que não é número
+    aplicarMascaraCpfCnpjInput() {
+      this.pessoa.documento = this.aplicarMascaraCpfCnpj(this.pessoa.documento);
+
+      if (this.pessoa.documento?.length === 14) {
+        this.pessoa.tipo = this.tipos.filter(tipoPessoa=>tipoPessoa.value==='PESSOA_FISICA')[0].value;
+      } else if(this.pessoa.documento?.length === 17) {
+        this.pessoa.tipo = this.tipos.filter(tipoPessoa=>tipoPessoa.value==='PESSOA_JURIDICA')[0].value;
+      }else{
+        this.pessoa.erro = 'Documento inválido!';
+      }
+    },
+
+    aplicarMascaraCpfCnpj(cpf) {
+      let valor = cpf.replace(/\D/g, ''); // Remove tudo que não é número
 
       // Aplica a máscara de CPF ou CNPJ dependendo do número de caracteres
       if (valor.length <= 11) {
-        // Se for CPF (11 dígitos)
-        this.pessoa.documento = valor.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+        valor = valor.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
       } else {
-        // Se for CNPJ (14 dígitos)
-        this.pessoa.documento = valor.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+        valor = valor.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
       }
+
+      return valor;
     },
 
     // Valida o CPF ou CNPJ após a perda de foco
@@ -192,7 +224,7 @@ export default {
       }
 
       // Aplica a máscara novamente após a validação
-      this.aplicarMascaraCpfCnpj();
+      this.aplicarMascaraCpfCnpjInput();
     },
 
     // Aplica a máscara automaticamente
@@ -209,6 +241,7 @@ export default {
       }else if(this.pessoa.endereco.cep.length!==7){
         // Se o CEP for válido, a flag de erro é resetada
         this.pessoa.erroCEP = 'CEP deve ter 8 dígitos.';
+        this.resetDadosCEP();
       }
     },
     async buscarEndereco() {
@@ -248,7 +281,15 @@ export default {
       this.pessoa.endereco.rua = null;
     },
     cadastrar() {
-      console.log('invocou o método cadastrar!');
+      this.pessoa.documento = this.pessoa.documento.replace(/\D/g, '');
+      this.pessoa.endereco.cep = this.pessoa.endereco.cep.replace(/\D/g, '');
+
+      pessoaService.create(this.pessoa).then(res=>{
+        console.log('res', res);
+      }).catch(()=>{
+        this.aplicarMascaraCep();
+        this.aplicarMascaraCpfCnpjInput();
+      });
     }
   }
 }

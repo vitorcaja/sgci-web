@@ -89,6 +89,7 @@ import { pessoaService } from "src/services/pessoaService.js";
 import { validarCpf, validarCnpj } from '../../utils/cpfCnpj';
 import CepService from "src/services/cepService.js";
 import { aplicarMascaraCep, validarCep } from "src/utils/cep.js";
+import {Notify} from "quasar";
 
 export default {
   name: 'create-edit-pessoa',
@@ -284,8 +285,8 @@ export default {
       this.pessoa.documento = this.pessoa.documento.replace(/\D/g, '');
       this.pessoa.endereco.cep = this.pessoa.endereco.cep.replace(/\D/g, '');
 
-      pessoaService.create(this.pessoa).then(res=>{
-        console.log('res', res);
+      pessoaService.create(this.pessoa).then(response=>{
+        Notify.create(response.data.id);
       }).catch(()=>{
         this.aplicarMascaraCep();
         this.aplicarMascaraCpfCnpjInput();
